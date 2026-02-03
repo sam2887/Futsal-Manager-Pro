@@ -3,177 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Futsal Manager Pro</title>
+    <title>Futsal Manager Pro v4.3</title>
     <style>
-        :root {
-            --bg-color: #000;
-            --text-color: #fff;
-            --accent-color: #ffcc00; /* Futsal Yellow */
-            --danger-color: #ff4444;
-            --card-bg: #1a1a1a;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        h1 { font-size: 1.2rem; color: var(--accent-color); margin-bottom: 5px; }
-        .container { width: 100%; max-width: 300px; }
-        .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 10px;
-            border: 1px solid #333;
-        }
-        .btn {
-            background: var(--accent-color);
-            color: #000;
-            border: none;
-            padding: 10px;
-            border-radius: 8px;
-            font-weight: bold;
-            width: 100%;
-            margin-top: 5px;
-            cursor: pointer;
-        }
-        .btn-red { background: var(--danger-color); color: white; }
-        input {
-            width: 80%;
-            padding: 8px;
-            background: #222;
-            border: 1px solid #444;
-            color: white;
-            border-radius: 5px;
-            margin-bottom: 5px;
-        }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        th, td { padding: 6px; text-align: left; border-bottom: 1px solid #333; }
-        .status-paid { color: #00ff00; }
-        .status-unpaid { color: var(--danger-color); }
+        :root { --bg-color: #000; --text-color: #fff; --accent-color: #ffcc00; --danger-color: #ff4444; --card-bg: #1a1a1a; }
+        body { font-family: sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        h1 { font-size: 1.1rem; color: var(--accent-color); margin: 5px 0; }
+        .container { width: 100%; max-width: 320px; }
+        .card { background: var(--card-bg); border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; }
+        .btn { background: var(--accent-color); color: #000; border: none; padding: 8px; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; margin-top: 5px; }
+        input, select { background: #222; border: 1px solid #444; color: white; padding: 5px; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        th, td { padding: 5px; text-align: left; border-bottom: 1px solid #333; }
+        .gk-tag { color: #00e5ff; font-weight: bold; font-size: 0.7rem; }
+        .rating-select { font-size: 0.75rem; width: 45px; }
     </style>
 </head>
 <body>
 
-    <h1>Futsal_Permanent_DB</h1>
+    <h1>Futsal_Permanent_DB v4.3</h1>
 
     <div class="container">
         <div class="card">
-            <strong>Add Player</strong><br>
-            <input type="text" id="playerName" placeholder="Name...">
-            <button class="btn" onclick="addPlayer()">Add</button>
+            <input type="text" id="pName" placeholder="Name..." style="width:65%">
+            <button class="btn" style="width:30%; display:inline-block;" onclick="addPlayer()">Add</button>
         </div>
 
         <div class="card">
-            <strong>Teams & Shuffle</strong>
-            <div id="teamDisplay" style="margin-top:10px;"></div>
-            <button class="btn" onclick="shuffleTeams()">Randomize Teams</button>
-        </div>
-
-        <div class="card">
-            <strong>Finances (Total: <span id="totalPot">$0</span>)</strong>
-            <table id="financeTable">
+            <strong>Squad & Ratings</strong>
+            <table>
                 <thead>
-                    <tr><th>Player</th><th>Paid</th></tr>
+                    <tr><th>GK</th><th>Name</th><th>Rate</th><th>Paid</th></tr>
                 </thead>
-                <tbody id="financeList"></tbody>
+                <tbody id="playerList"></tbody>
             </table>
         </div>
 
-        <button class="btn btn-red" onclick="clearAllData()">Reset All Data</button>
+        <div class="card">
+            <button class="btn" onclick="shuffleTeams()">Shuffle Teams</button>
+            <div id="teamDisplay" style="margin-top:8px; font-size:0.85rem;"></div>
+        </div>
+
+        <button class="btn" style="background:#444; color:white; font-size:0.7rem;" onclick="clearData()">Reset Database</button>
     </div>
 
     <script>
-        const DB_LABEL = 'Futsal_Permanent_DB';
-        let state = {
-            players: [],
-            finances: {}, // player: boolean
-            matchFee: 10
-        };
+        const DB_KEY = 'Futsal_Permanent_DB';
+        let state = JSON.parse(localStorage.getItem(DB_KEY)) || { players: [] };
 
-        // LOAD DATA
-        function loadDB() {
-            const saved = localStorage.getItem(DB_LABEL);
-            if (saved) {
-                state = JSON.parse(saved);
-                render();
-            }
-        }
-
-        // SAVE DATA
-        function saveDB() {
-            localStorage.setItem(DB_LABEL, JSON.stringify(state));
+        function save() {
+            localStorage.setItem(DB_KEY, JSON.stringify(state));
             render();
         }
 
         function addPlayer() {
-            const nameInput = document.getElementById('playerName');
-            const name = nameInput.value.trim();
-            if (name && !state.players.includes(name)) {
-                state.players.push(name);
-                state.finances[name] = false;
-                nameInput.value = '';
-                saveDB();
+            const name = document.getElementById('pName').value.trim();
+            if (name) {
+                state.players.push({ name, isGK: false, rating: 3, paid: false });
+                document.getElementById('pName').value = '';
+                save();
             }
         }
 
-        function togglePaid(name) {
-            state.finances[name] = !state.finances[name];
-            saveDB();
-        }
+        function toggleGK(index) { state.players[index].isGK = !state.players[index].isGK; save(); }
+        function togglePaid(index) { state.players[index].paid = !state.players[index].paid; save(); }
+        function setRating(index, val) { state.players[index].rating = parseInt(val); save(); }
 
         function shuffleTeams() {
-            if (state.players.length < 2) return alert("Need more players!");
-            let shuffled = [...state.players].sort(() => 0.5 - Math.random());
-            let mid = Math.ceil(shuffled.length / 2);
-            let teamA = shuffled.slice(0, mid);
-            let teamB = shuffled.slice(mid);
-            
-            let display = document.getElementById('teamDisplay');
-            display.innerHTML = `
-                <div style="color:#ffcc00">Team A: ${teamA.join(', ')}</div>
-                <div style="color:#00e5ff">Team B: ${teamB.join(', ')}</div>
-            `;
+            let p = [...state.players].sort(() => 0.5 - Math.random());
+            let mid = Math.ceil(p.length / 2);
+            let tA = p.slice(0, mid).map(x => x.name + (x.isGK ? " (GK)" : ""));
+            let tB = p.slice(mid).map(x => x.name + (x.isGK ? " (GK)" : ""));
+            document.getElementById('teamDisplay').innerHTML = `
+                <div style="color:var(--accent-color)">A: ${tA.join(', ')}</div>
+                <div style="color:#00e5ff">B: ${tB.join(', ')}</div>`;
         }
 
-        function clearAllData() {
-            if (confirm("Delete all player and finance data?")) {
-                state = { players: [], finances: {}, matchFee: 10 };
-                saveDB();
-            }
-        }
+        function clearData() { if(confirm("Clear all?")) { state.players = []; save(); } }
 
         function render() {
-            const list = document.getElementById('financeList');
-            list.innerHTML = '';
-            let total = 0;
-
-            state.players.forEach(name => {
-                const isPaid = state.finances[name];
-                if (isPaid) total += state.matchFee;
-
-                const row = `
+            const body = document.getElementById('playerList');
+            body.innerHTML = '';
+            state.players.forEach((p, i) => {
+                body.innerHTML += `
                     <tr>
-                        <td>${name}</td>
-                        <td class="${isPaid ? 'status-paid' : 'status-unpaid'}" 
-                            onclick="togglePaid('${name}')" style="cursor:pointer">
-                            ${isPaid ? '✔ PAID' : '✖ NO'}
+                        <td><input type="checkbox" ${p.isGK ? 'checked' : ''} onchange="toggleGK(${i})"></td>
+                        <td>${p.name}</td>
+                        <td>
+                            <select class="rating-select" onchange="setRating(${i}, this.value)">
+                                ${[1,2,3,4,5].map(n => `<option value="${n}" ${p.rating==n?'selected':''}>${n}★</option>`).join('')}
+                            </select>
                         </td>
-                    </tr>
-                `;
-                list.innerHTML += row;
+                        <td onclick="togglePaid(${i})" style="cursor:pointer; color:${p.paid?'#00ff00':'#ff4444'}">
+                            ${p.paid ? '✔' : '✘'}
+                        </td>
+                    </tr>`;
             });
-
-            document.getElementById('totalPot').innerText = `$${total}`;
         }
-
-        // Start
-        loadDB();
+        render();
     </script>
 </body>
 </html>

@@ -2,187 +2,178 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Futsal Manager v4.1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Futsal Manager Pro</title>
     <style>
-        :root { --tg-blue: #0088cc; --pitch-green: #2e7d32; --danger: #e53935; --cash: #4caf50; --bank: #9c27b0; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: #f0f2f5; padding: 10px; margin: 0; display: flex; flex-direction: column; align-items: center; }
-        .container { background: white; padding: 15px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 95%; max-width: 450px; margin-bottom: 15px; box-sizing: border-box; }
-        
-        .finance-bar { background: #e3f2fd; padding: 10px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #bbdefb; }
-        .fin-stats { display: flex; justify-content: space-around; font-size: 0.85rem; font-weight: bold; margin-bottom: 8px; }
-        
-        input { padding: 12px; border: 1px solid #ddd; border-radius: 12px; width: 100%; box-sizing: border-box; margin-bottom: 8px; font-size: 16px; }
-        button { padding: 10px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        
-        .player-card { background: #fff; border: 1px solid #eee; padding: 10px; border-radius: 15px; margin-bottom: 5px; }
-        .pay-badge { font-size: 10px; padding: 2px 6px; border-radius: 5px; font-weight: bold; color: white; display: inline-block; margin-top: 3px; }
-        .bg-cash { background: var(--cash); }
-        .bg-bank { background: var(--bank); }
-        .debt-text { color: var(--danger); font-weight: bold; font-size: 14px; margin-left: auto; }
-
-        .edit-zone { display: none; background: #f9f9f9; padding: 10px; border-radius: 10px; margin-top: 5px; border: 1px dashed #ccc; }
-        .pay-row { display: flex; gap: 5px; margin-bottom: 10px; }
-        .pay-btn { flex: 1; font-size: 11px; background: #eee; border: 1px solid #ccc; padding: 8px; }
-        .pay-btn.active { background: var(--tg-blue); color: white; }
-
-        /* MATCH CENTER */
-        #matchCenter { background: #000; color: white; display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1000; text-align: center; box-sizing: border-box; padding: 5px; flex-direction: column; }
-        .watch-timer { font-size: 3rem; font-family: monospace; color: #ffeb3b; margin: 5px 0; }
-        .team-container { display: flex; flex: 1; gap: 5px; overflow: hidden; margin-bottom: 10px; position: relative; }
-        .team-column { flex: 1; display: flex; flex-direction: column; gap: 5px; }
-        .names-list { background: rgba(255,255,255,0.1); border-radius: 10px; padding: 5px; font-size: 11px; text-align: left; height: 80px; overflow-y: auto; }
-        .watch-btn { flex: 1; border-radius: 15px; font-size: 3.5rem; color: white; border: 3px solid rgba(255,255,255,0.2); display: flex; justify-content: center; align-items: center; }
-        .t1-bg { background: #1a237e; } .t2-bg { background: #b71c1c; }
-        
-        .redraw-trigger { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.2); border: 1px solid white; border-radius: 50%; width: 35px; height: 35px; display: flex; justify-content: center; align-items: center; font-size: 18px; z-index: 10; backdrop-filter: blur(5px); }
+        :root {
+            --bg-color: #000;
+            --text-color: #fff;
+            --accent-color: #ffcc00; /* Futsal Yellow */
+            --danger-color: #ff4444;
+            --card-bg: #1a1a1a;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { font-size: 1.2rem; color: var(--accent-color); margin-bottom: 5px; }
+        .container { width: 100%; max-width: 300px; }
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #333;
+        }
+        .btn {
+            background: var(--accent-color);
+            color: #000;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+        .btn-red { background: var(--danger-color); color: white; }
+        input {
+            width: 80%;
+            padding: 8px;
+            background: #222;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 6px; text-align: left; border-bottom: 1px solid #333; }
+        .status-paid { color: #00ff00; }
+        .status-unpaid { color: var(--danger-color); }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="finance-bar">
-        <div class="fin-stats">
-            <span>💵 Cash: <span id="sumCash">0</span>€</span>
-            <span>🏦 Bank: <span id="sumBank">0</span>€</span>
+    <h1>Futsal_Permanent_DB</h1>
+
+    <div class="container">
+        <div class="card">
+            <strong>Add Player</strong><br>
+            <input type="text" id="playerName" placeholder="Name...">
+            <button class="btn" onclick="addPlayer()">Add</button>
         </div>
-        <div style="display:flex; gap:5px;">
-            <button onclick="chargeActive()" style="flex:1; background:var(--tg-blue); color:white; font-size:10px;">Charge Checked</button>
-            <button onclick="resetSession()" style="flex:1; background:var(--danger); color:white; font-size:10px;">New Session</button>
+
+        <div class="card">
+            <strong>Teams & Shuffle</strong>
+            <div id="teamDisplay" style="margin-top:10px;"></div>
+            <button class="btn" onclick="shuffleTeams()">Randomize Teams</button>
         </div>
-    </div>
-    
-    <input type="text" id="pSearch" placeholder="Search..." onkeyup="render()">
-    <div id="pList" style="max-height: 280px; overflow-y: auto;"></div>
-    
-    <div style="margin-top:10px; padding-top:10px; border-top: 1px solid #eee;">
-        Mins: <input type="number" id="matchMins" value="10" style="width:50px; display:inline;">
-        <button onclick="drawTeams()" style="background:var(--pitch-green); color:white; width:100%; padding:15px; margin-top:10px;">⚖️ KICKOFF</button>
-    </div>
-</div>
 
-<div id="matchCenter">
-    <div id="timerRow" class="watch-timer" onclick="toggleTimer()">10:00</div>
-    
-    <div class="team-container">
-        <div class="redraw-trigger" onclick="drawTeams(true)">🔄</div>
-        
-        <div class="team-column">
-            <div id="t1Names" class="names-list"></div>
-            <button class="watch-btn t1-bg" onclick="updateScore(1, 1)"><span id="t1score">0</span></button>
+        <div class="card">
+            <strong>Finances (Total: <span id="totalPot">$0</span>)</strong>
+            <table id="financeTable">
+                <thead>
+                    <tr><th>Player</th><th>Paid</th></tr>
+                </thead>
+                <tbody id="financeList"></tbody>
+            </table>
         </div>
-        <div class="team-column">
-            <div id="t2Names" class="names-list"></div>
-            <button class="watch-btn t2-bg" onclick="updateScore(2, 1)"><span id="t2score">0</span></button>
-        </div>
+
+        <button class="btn btn-red" onclick="clearAllData()">Reset All Data</button>
     </div>
-    
-    <div style="display:flex; gap:5px; height:45px;">
-        <button id="startStopBtn" onclick="toggleTimer()" style="flex:1; background:var(--pitch-green); color:white;">START</button>
-        <button onclick="editTimerLive()" style="flex:1; background:#333; color:white;">✏️</button>
-        <button onclick="closeMatch()" style="flex:1; background:var(--danger); color:white;">END</button>
-    </div>
-</div>
 
-<div class="container">
-    <input type="text" id="addName" placeholder="New Player Name">
-    <button onclick="addPlayer()" style="background:var(--tg-blue); color:white; width:100%;">Add Player</button>
-</div>
+    <script>
+        const DB_LABEL = 'Futsal_Permanent_DB';
+        let state = {
+            players: [],
+            finances: {}, // player: boolean
+            matchFee: 10
+        };
 
-<script>
-    const DB_KEY = 'Futsal_Permanent_DB';
-    let data = JSON.parse(localStorage.getItem(DB_KEY)) || { players: [] };
-    let score1 = 0, score2 = 0, timerInterval, timeLeft = 0, isRunning = false;
-    const whistle = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3');
-
-    function save() { localStorage.setItem(DB_KEY, JSON.stringify(data)); render(); }
-
-    function addPlayer() {
-        const n = document.getElementById('addName');
-        if(!n.value) return;
-        data.players.push({ name: n.value, skill: 5, isGK: false, act: false, debt: 0, payMethod: 'Cash', paidToday: 0 });
-        n.value = ''; save();
-    }
-
-    function render() {
-        const query = document.getElementById('pSearch').value.toLowerCase();
-        const list = document.getElementById('pList');
-        let totalCash = 0, totalBank = 0;
-        list.innerHTML = '';
-        data.players.forEach((p, realIdx) => {
-            if (p.paidToday > 0) { if (p.payMethod === 'Cash') totalCash += p.paidToday; else totalBank += p.paidToday; }
-            if (!p.name.toLowerCase().includes(query)) return;
-            const div = document.createElement('div');
-            div.className = 'player-card';
-            let badge = p.paidToday > 0 ? `<span class="pay-badge ${p.payMethod==='Cash'?'bg-cash':'bg-bank'}">${p.payMethod}</span>` : "";
-            div.innerHTML = `
-                <div style="display:flex; align-items:center;">
-                    <input type="checkbox" ${p.act?'checked':''} onchange="data.players[${realIdx}].act=this.checked; save()" style="width:24px; height:24px; margin-right:10px;">
-                    <div><b>${p.name}</b> ${p.isGK?'🧤':''}<br>${badge}</div>
-                    <span class="debt-text">${p.debt > 0 ? p.debt + '€' : ''}</span>
-                    <button onclick="toggleEdit(${realIdx})" style="background:#eee; margin-left:10px; border-radius:8px; padding:5px 10px;">✏️</button>
-                </div>
-                <div id="edit-${realIdx}" class="edit-zone">
-                    <div class="pay-row">
-                        <button class="pay-btn ${p.payMethod==='Cash'?'active':''}" onclick="data.players[${realIdx}].payMethod='Cash'; save()">Set Cash</button>
-                        <button class="pay-btn ${p.payMethod==='Bank'?'active':''}" onclick="data.players[${realIdx}].payMethod='Bank'; save()">Set Bank</button>
-                    </div>
-                    <button style="background:var(--pitch-green); color:white; width:100%; padding:10px; margin-bottom:10px;" onclick="data.players[${realIdx}].paidToday=data.players[${realIdx}].debt; data.players[${realIdx}].debt=0; save()">CONFIRM PAYMENT</button>
-                    Debt: <input type="number" value="${p.debt}" onchange="data.players[${realIdx}].debt=parseFloat(this.value); save()">
-                    Skill: <input type="number" value="${p.skill}" onchange="data.players[${realIdx}].skill=parseFloat(this.value); save()">
-                    <label><input type="checkbox" ${p.isGK?'checked':''} onchange="data.players[${realIdx}].isGK=this.checked; save()"> Mark as GK</label>
-                    <button onclick="data.players.splice(${realIdx},1); save()" style="background:var(--danger); color:white; width:100%; margin-top:10px; font-size:10px;">Delete</button>
-                </div>`;
-            list.appendChild(div);
-        });
-        document.getElementById('sumCash').innerText = totalCash;
-        document.getElementById('sumBank').innerText = totalBank;
-    }
-
-    function drawTeams(isRedraw = false) {
-        let active = data.players.filter(p => p.act);
-        if(active.length < 2) return alert("Select players!");
-        
-        // Randomize
-        let gks = active.filter(p => p.isGK).sort(() => Math.random() - 0.5);
-        let field = active.filter(p => !p.isGK).sort((a,b) => (b.skill + Math.random()) - (a.skill + Math.random()));
-        let t1 = [], t2 = [], s1 = 0, s2 = 0;
-        gks.forEach(g => { if(s1 <= s2){ t1.push(g); s1 += g.skill; } else { t2.push(g); s2 += g.skill; } });
-        field.forEach(f => { if(s1 <= s2){ t1.push(f); s1 += f.skill; } else { t2.push(f); s2 += f.skill; } });
-
-        // Reset Scores
-        score1 = 0; score2 = 0;
-        document.getElementById('t1score').innerText = 0;
-        document.getElementById('t2score').innerText = 0;
-        document.getElementById('t1Names').innerHTML = t1.map(p=> (p.isGK?'🧤':'')+p.name).join('<br>');
-        document.getElementById('t2Names').innerHTML = t2.map(p=> (p.isGK?'🧤':'')+p.name).join('<br>');
-        
-        if(!isRedraw) {
-            timeLeft = document.getElementById('matchMins').value * 60;
-            updateTimerDisplay();
-            document.getElementById('matchCenter').style.display = 'flex';
-        } else {
-            if(navigator.vibrate) navigator.vibrate(100);
+        // LOAD DATA
+        function loadDB() {
+            const saved = localStorage.getItem(DB_LABEL);
+            if (saved) {
+                state = JSON.parse(saved);
+                render();
+            }
         }
-    }
 
-    function toggleTimer() {
-        const btn = document.getElementById('startStopBtn');
-        if(isRunning) { clearInterval(timerInterval); isRunning = false; btn.innerText = "START"; btn.style.background = "var(--pitch-green)"; }
-        else { isRunning = true; whistle.play(); if(navigator.vibrate) navigator.vibrate([200, 100]);
-            btn.innerText = "PAUSE"; btn.style.background = "var(--danger)";
-            timerInterval = setInterval(() => { timeLeft--; updateTimerDisplay(); if(timeLeft <= 0) { clearInterval(timerInterval); isRunning = false; whistle.play(); if(navigator.vibrate) navigator.vibrate(1000); alert("FULL TIME!"); } }, 1000);
+        // SAVE DATA
+        function saveDB() {
+            localStorage.setItem(DB_LABEL, JSON.stringify(state));
+            render();
         }
-    }
 
-    function updateTimerDisplay() { let m = Math.floor(timeLeft/60), s = timeLeft%60; document.getElementById('timerRow').innerText = `${m}:${s < 10 ? '0' : ''}${s}`; }
-    function updateScore(t, v) { if(navigator.vibrate) navigator.vibrate(40); if(t===1) { score1 += v; document.getElementById('t1score').innerText = score1; } else { score2 += v; document.getElementById('t2score').innerText = score2; } }
-    function editTimerLive() { let m = prompt("Mins:", Math.floor(timeLeft/60)); if(m) { timeLeft = parseInt(m)*60; updateTimerDisplay(); } }
-    function resetSession() { if(confirm("New Session? This unchecks everyone and clears today's payments.")) { data.players.forEach(p => { p.paidToday = 0; p.act = false; }); save(); } }
-    function chargeActive() { let amount = prompt("Charge amount?", "5"); if(amount) { data.players.forEach(p => { if(p.act) p.debt += parseFloat(amount); }); save(); } }
-    function closeMatch() { if(confirm("Exit Match?")) { clearInterval(timerInterval); isRunning = false; document.getElementById('matchCenter').style.display = 'none'; } }
+        function addPlayer() {
+            const nameInput = document.getElementById('playerName');
+            const name = nameInput.value.trim();
+            if (name && !state.players.includes(name)) {
+                state.players.push(name);
+                state.finances[name] = false;
+                nameInput.value = '';
+                saveDB();
+            }
+        }
 
-    render();
-</script>
+        function togglePaid(name) {
+            state.finances[name] = !state.finances[name];
+            saveDB();
+        }
+
+        function shuffleTeams() {
+            if (state.players.length < 2) return alert("Need more players!");
+            let shuffled = [...state.players].sort(() => 0.5 - Math.random());
+            let mid = Math.ceil(shuffled.length / 2);
+            let teamA = shuffled.slice(0, mid);
+            let teamB = shuffled.slice(mid);
+            
+            let display = document.getElementById('teamDisplay');
+            display.innerHTML = `
+                <div style="color:#ffcc00">Team A: ${teamA.join(', ')}</div>
+                <div style="color:#00e5ff">Team B: ${teamB.join(', ')}</div>
+            `;
+        }
+
+        function clearAllData() {
+            if (confirm("Delete all player and finance data?")) {
+                state = { players: [], finances: {}, matchFee: 10 };
+                saveDB();
+            }
+        }
+
+        function render() {
+            const list = document.getElementById('financeList');
+            list.innerHTML = '';
+            let total = 0;
+
+            state.players.forEach(name => {
+                const isPaid = state.finances[name];
+                if (isPaid) total += state.matchFee;
+
+                const row = `
+                    <tr>
+                        <td>${name}</td>
+                        <td class="${isPaid ? 'status-paid' : 'status-unpaid'}" 
+                            onclick="togglePaid('${name}')" style="cursor:pointer">
+                            ${isPaid ? '✔ PAID' : '✖ NO'}
+                        </td>
+                    </tr>
+                `;
+                list.innerHTML += row;
+            });
+
+            document.getElementById('totalPot').innerText = `$${total}`;
+        }
+
+        // Start
+        loadDB();
+    </script>
 </body>
 </html>

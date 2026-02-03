@@ -3,110 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Futsal Manager Pro v4.5</title>
+    <title>Futsal Watch Ref</title>
     <style>
-        :root { --bg-color: #000; --text-color: #fff; --accent-color: #ffcc00; --danger-color: #ff4444; --card-bg: #1a1a1a; }
-        body { font-family: sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
-        h1 { font-size: 1.1rem; color: var(--accent-color); margin: 5px 0; }
-        .container { width: 100%; max-width: 340px; }
-        .card { background: var(--card-bg); border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; }
-        .btn { background: var(--accent-color); color: #000; border: none; padding: 10px; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; margin-top: 5px; }
-        input, select { background: #222; border: 1px solid #444; color: white; padding: 6px; border-radius: 5px; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-        th, td { padding: 8px 4px; text-align: left; border-bottom: 1px solid #333; }
-        .team-box { margin-top:10px; padding:10px; border-radius:8px; font-size:0.85rem; line-height:1.5; background: #111; border-left: 4px solid var(--accent-color); }
+        :root { --bg: #000; --tA: #ffcc00; --tB: #00e5ff; --txt: #fff; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--txt); margin: 0; padding: 5px; text-align: center; overflow: hidden; }
+        
+        /* TIMER SECTION */
+        #timer-display { font-size: 2.5rem; font-weight: bold; margin: 5px 0; color: #fff; cursor: pointer; }
+        .timer-controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
+        
+        /* SCORE SECTION */
+        .scoreboard { display: flex; justify-content: space-around; align-items: center; margin-top: 10px; }
+        .team { width: 45%; }
+        .score-num { font-size: 3rem; font-weight: bold; display: block; }
+        .team-name { font-size: 0.8rem; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+        
+        /* BUTTONS */
+        .btn { border: none; border-radius: 50%; width: 45px; height: 45px; font-size: 1.5rem; font-weight: bold; cursor: pointer; }
+        .btn-plus { background: #333; color: white; border: 1px solid #555; }
+        .btn-start { background: #28a745; color: white; border-radius: 8px; width: 60px; font-size: 0.9rem; }
+        .btn-reset { background: #dc3545; color: white; border-radius: 8px; width: 60px; font-size: 0.9rem; }
+        
+        /* SETTINGS */
+        .setup { font-size: 0.7rem; color: #888; margin-top: 10px; }
+        input { background: #222; border: 1px solid #444; color: #fff; width: 40px; text-align: center; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-    <h1>Futsal_Permanent_DB v4.5</h1>
+    <div id="timer-display" onclick="adjustTime()">20:00</div>
+    <div class="timer-controls">
+        <button class="btn-start" id="startBtn" onclick="toggleTimer()">START</button>
+        <button class="btn-reset" onclick="resetTimer()">RESET</button>
+    </div>
 
-    <div class="container">
-        <div class="card">
-            <input type="text" id="pName" placeholder="Player Name..." style="width:60%">
-            <button class="btn" style="width:35%; display:inline-block; margin:0;" onclick="addPlayer()">Add</button>
+    <div class="scoreboard">
+        <div class="team" style="color: var(--tA);">
+            <div class="team-name" onclick="renameTeam('A')">TEAM A</div>
+            <span class="score-num" id="scoreA">0</span>
+            <button class="btn btn-plus" onclick="changeScore('A', 1)">+</button>
+            <button class="btn btn-plus" style="font-size: 0.8rem; height: 30px; width: 30px; margin-top: 5px;" onclick="changeScore('A', -1)">-</button>
         </div>
 
-        <div class="card">
-            <strong>Squad (GK | Name | Rate | $)</strong>
-            <table>
-                <tbody id="playerList"></tbody>
-            </table>
+        <div class="team" style="color: var(--tB);">
+            <div class="team-name" onclick="renameTeam('B')">TEAM B</div>
+            <span class="score-num" id="scoreB">0</span>
+            <button class="btn btn-plus" onclick="changeScore('B', 1)">+</button>
+            <button class="btn btn-plus" style="font-size: 0.8rem; height: 30px; width: 30px; margin-top: 5px;" onclick="changeScore('B', -1)">-</button>
         </div>
+    </div>
 
-        <div class="card">
-            <button class="btn" onclick="shufflePro()">Shuffle (Balanced GK & Skill)</button>
-            <div id="teamDisplay"></div>
-        </div>
-
-        <button class="btn" style="background:#333; color:#888; font-size:0.7rem;" onclick="clearData()">Wipe Database</button>
+    <div class="setup">
+        Set Mins: <input type="number" id="minInput" value="20" onchange="updateDefaultTime()">
     </div>
 
     <script>
-        const DB_KEY = 'Futsal_Permanent_DB';
-        let state = JSON.parse(localStorage.getItem(DB_KEY)) || { players: [] };
+        let timeLeft = 1200; // 20 mins in seconds
+        let timerId = null;
+        let scoreA = 0;
+        let scoreB = 0;
 
-        function save() { localStorage.setItem(DB_KEY, JSON.stringify(state)); render(); }
+        function updateDisplay() {
+            let m = Math.floor(timeLeft / 60);
+            let s = timeLeft % 60;
+            document.getElementById('timer-display').innerText = 
+                `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
 
-        function addPlayer() {
-            const name = document.getElementById('pName').value.trim();
-            if (name) {
-                state.players.push({ name, isGK: false, rating: 5, paid: false });
-                document.getElementById('pName').value = '';
-                save();
+        function toggleTimer() {
+            if (timerId) {
+                clearInterval(timerId);
+                timerId = null;
+                document.getElementById('startBtn').innerText = "START";
+                document.getElementById('startBtn').style.background = "#28a745";
+            } else {
+                timerId = setInterval(() => {
+                    if (timeLeft > 0) {
+                        timeLeft--;
+                        updateDisplay();
+                    } else {
+                        clearInterval(timerId);
+                        alert("Match Over!");
+                    }
+                }, 1000);
+                document.getElementById('startBtn').innerText = "PAUSE";
+                document.getElementById('startBtn').style.background = "#ffc107";
             }
         }
 
-        function toggleGK(i) { state.players[i].isGK = !state.players[i].isGK; save(); }
-        function togglePaid(i) { state.players[i].paid = !state.players[i].paid; save(); }
-        function setRate(i, v) { state.players[i].rating = parseInt(v); save(); }
-
-        function shufflePro() {
-            let keepers = state.players.filter(p => p.isGK).sort(() => 0.5 - Math.random());
-            let others = state.players.filter(p => !p.isGK).sort((a, b) => b.rating - a.rating);
-            
-            let teamA = [], teamB = [];
-            let scoreA = 0, scoreB = 0;
-
-            keepers.forEach((k, idx) => {
-                if (idx % 2 === 0) { teamA.push(k.name + " 🧤"); scoreA += k.rating; }
-                else { teamB.push(k.name + " 🧤"); scoreB += k.rating; }
-            });
-
-            others.forEach((p) => {
-                if (scoreA <= scoreB) { teamA.push(p.name); scoreA += p.rating; }
-                else { teamB.push(p.name); scoreB += p.rating; }
-            });
-
-            document.getElementById('teamDisplay').innerHTML = `
-                <div class="team-box">
-                    <b style="color:var(--accent-color)">TEAM A (Power: ${scoreA})</b><br>${teamA.join(', ')}
-                </div>
-                <div class="team-box" style="border-left-color:#00e5ff">
-                    <b style="color:#00e5ff">TEAM B (Power: ${scoreB})</b><br>${teamB.join(', ')}
-                </div>`;
+        function resetTimer() {
+            clearInterval(timerId);
+            timerId = null;
+            updateDefaultTime();
+            document.getElementById('startBtn').innerText = "START";
+            document.getElementById('startBtn').style.background = "#28a745";
         }
 
-        function clearData() { if(confirm("Delete all data?")) { state.players = []; save(); } }
-
-        function render() {
-            const body = document.getElementById('playerList');
-            body.innerHTML = '';
-            state.players.forEach((p, i) => {
-                let options = "";
-                for(let n=1; n<=10; n++) {
-                    options += `<option value="${n}" ${p.rating==n?'selected':''}>${n}</option>`;
-                }
-                body.innerHTML += `
-                <tr>
-                    <td><input type="checkbox" ${p.isGK ? 'checked' : ''} onchange="toggleGK(${i})"></td>
-                    <td>${p.name}</td>
-                    <td><select onchange="setRate(${i}, this.value)">${options}</select></td>
-                    <td onclick="togglePaid(${i})" style="color:${p.paid?'#00ff00':'#ff4444'}">${p.paid?'✔':'✘'}</td>
-                </tr>`;
-            });
+        function updateDefaultTime() {
+            const mins = document.getElementById('minInput').value;
+            timeLeft = mins * 60;
+            updateDisplay();
         }
-        render();
+
+        function changeScore(team, val) {
+            if (team === 'A') {
+                scoreA = Math.max(0, scoreA + val);
+                document.getElementById('scoreA').innerText = scoreA;
+            } else {
+                scoreB = Math.max(0, scoreB + val);
+                document.getElementById('scoreB').innerText = scoreB;
+            }
+        }
+
+        function renameTeam(team) {
+            let name = prompt("Enter Team Name:");
+            if (name) {
+                document.querySelectorAll('.team-name')[team === 'A' ? 0 : 1].innerText = name.substring(0, 8);
+            }
+        }
+
+        function adjustTime() {
+            let newTime = prompt("Edit remaining seconds:", timeLeft);
+            if (newTime) {
+                timeLeft = parseInt(newTime);
+                updateDisplay();
+            }
+        }
     </script>
 </body>
 </html>

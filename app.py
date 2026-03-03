@@ -119,70 +119,65 @@ if app_mode == "📋 Manager Pro":
             if len(present) < (t_count * 2):
                 st.error("Not enough players!")
             else:
-                # --- BALANCING ENGINE ---
-                # 1. Separate GKs and Outfielders
-                gks = [p for p in present if p.is_goalie or p.position == "GK"]
+                # --- GREEDY BALANCING ENGINE ---
+                # 1. Shuffle everything first for true variety
+                random.shuffle(present)
+                
+                # 2. Separate GKs (Elite first)
+                gks = sorted([p for p in present if p.is_goalie or p.position == "GK"], key=lambda x: x.rating, reverse=True)
                 outfielders = [p for p in present if p not in gks]
-                
-                # 2. Add Randomness: Shuffle players within their rating tiers
-                # This ensures that if you have five "8-rated" players, they aren't always in the same order.
-                random.shuffle(gks)
-                random.shuffle(outfielders)
-                
-                # 3. Sort by rating (Stable sort ensures the shuffle above is respected)
-                gks.sort(key=lambda x: x.rating, reverse=True)
                 outfielders.sort(key=lambda x: x.rating, reverse=True)
 
                 final_teams = [{"name": f"Team {chr(65+i)}", "players": [], "rating": 0, "has_gk": False} for i in range(t_count)]
                 
-                # 4. Assign GKs (One per team)
+                # 3. Distribute GKs (Snake order for GKs)
                 for i, gk in enumerate(gks):
-                    if i < t_count:
-                        final_teams[i]["players"].append(gk)
-                        final_teams[i]["rating"] += gk.rating
-                        final_teams[i]["has_gk"] = True
+                    target_idx = i % t_count if (i // t_count) % 2 == 0 else (t_count - 1) - (i % t_count)
+                    if target_idx < t_count:
+                        final_teams[target_idx]["players"].append(gk)
+                        final_teams[target_idx]["rating"] += gk.rating
+                        final_teams[target_idx]["has_gk"] = True
                     else:
-                        outfielders.append(gk)
+                        outfielders.append(gk) # Extras become outfielders
                 
-                # Re-sort outfielders as a GK might have been moved there
+                # 4. GREEDY DISTRIBUTION for Outfielders
+                # We sort teams by current rating AND player count to keep it 6-6-6
                 outfielders.sort(key=lambda x: x.rating, reverse=True)
+                for p in outfielders:
+                    # Pick the team that is either smaller OR has a lower rating if sizes are equal
+                    final_teams.sort(key=lambda x: (len(x["players"]), x["rating"]))
+                    final_teams[0]["players"].append(p)
+                    final_teams[0]["rating"] += p.rating
 
-                # 5. SNAKE DRAFT for Outfielders (Forward-Backward-Forward)
-                # This is the key to balancing 18 players (6-6-6)
-                for i, p in enumerate(outfielders):
-                    round_num = i // t_count
-                    if round_num % 2 == 0:
-                        target_idx = i % t_count # Round 1: 0,1,2 | Round 3: 0,1,2
-                    else:
-                        target_idx = (t_count - 1) - (i % t_count) # Round 2: 2,1,0 | Round 4: 2,1,0
-                    
-                    final_teams[target_idx]["players"].append(p)
-                    final_teams[target_idx]["rating"] += p.rating
-                
+                # Sort back to A-B-C for UI
+                final_teams.sort(key=lambda x: x["name"])
                 st.session_state.final_teams = final_teams
                 st.rerun()
 
-    # --- DISPLAY & SWAP ---
+    # --- DISPLAY & ONE-TAP SWAP ---
     if "final_teams" in st.session_state:
         cols = st.columns(t_count)
         for i, team in enumerate(st.session_state.final_teams):
             with cols[i]:
-                st.subheader(f"{team['name']} ({team['rating']} pts)")
+                # Visual Team Strength
+                st.subheader(f"{team['name']}")
+                st.metric("Total Rating", f"{team['rating']} pts")
                 if not team["has_gk"]: st.warning("🧤 Guest GK Needed")
+                
                 for p in team["players"]:
                     label = f"{'🧤' if p.is_goalie else '🏃'} {p.name} ({p.rating})"
-                    if st.button(label, key=f"btn_{p.id}_{i}"):
+                    if st.button(label, key=f"btn_{p.id}_{i}", use_container_width=True):
                         st.session_state.swap_list.append({"p": p, "t_idx": i})
                         if len(st.session_state.swap_list) == 2:
                             s1, s2 = st.session_state.swap_list
-                            # Perform Swap
+                            # Execute Swap
                             t1_list = st.session_state.final_teams[s1['t_idx']]["players"]
                             t2_list = st.session_state.final_teams[s2['t_idx']]["players"]
                             idx1 = next(idx for idx, player in enumerate(t1_list) if player.id == s1['p'].id)
                             idx2 = next(idx for idx, player in enumerate(t2_list) if player.id == s2['p'].id)
                             t1_list[idx1], t2_list[idx2] = t2_list[idx2], t1_list[idx1]
                             
-                            # Recalculate Ratings
+                            # Refresh totals
                             for t in st.session_state.final_teams:
                                 t["rating"] = sum(pl.rating for pl in t["players"])
                                 t["has_gk"] = any(pl.is_goalie for pl in t["players"])
@@ -190,10 +185,10 @@ if app_mode == "📋 Manager Pro":
                             st.rerun()
         
         if st.session_state.swap_list:
-            st.info(f"Swap selected: **{st.session_state.swap_list[0]['p'].name}**. Click a player on another team to swap.")
+            st.info(f"🔄 Swapping: **{st.session_state.swap_list[0]['p'].name}**. Select another player to finish.")
 
-        # Telegram
-        msg = "⚽ *FUTSAL LINEUP* ⚽\n\n"
+        # Telegram Sharing
+        msg = "⚽ *FUTSAL MATCH DAY* ⚽\n\n"
         for t in st.session_state.final_teams:
             msg += f"*{t['name']}* (Rating: {t['rating']})\n"
             for p in t["players"]:

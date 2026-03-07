@@ -36,6 +36,7 @@ if "score_a" not in st.session_state: st.session_state.score_a = 0
 if "score_b" not in st.session_state: st.session_state.score_b = 0
 if "ref_3_teams" not in st.session_state: st.session_state.ref_3_teams = None
 if "rotation_idx" not in st.session_state: st.session_state.rotation_idx = 0
+if "edit_id" not in st.session_state: st.session_state.edit_id = None
 if "db_connected" not in st.session_state: st.session_state.db_connected = False
 if "swap_list" not in st.session_state: st.session_state.swap_list = []
 
@@ -60,75 +61,110 @@ if not st.session_state.db_connected:
         st.rerun()
     st.stop()
 
-# --- 4. MANAGER PRO MODE (THE DRAW) ---
+# --- 4. MANAGER PRO MODE ---
 if app_mode == "📋 Manager Pro":
     st.title("📋 Futsal Manager Pro")
+    
     with SessionLocal() as session:
-        with st.expander("👤 Player Management"):
-            # Form to add/edit players
-            with st.form("p_form"):
-                f_name = st.text_input("Name")
-                f_rate = st.slider("Rating", 1, 10, 5)
-                f_pos = st.selectbox("Position", ["GK", "DEF", "FWD"])
-                f_gk = st.checkbox("Is Goalie?")
-                if st.form_submit_button("💾 Save Player"):
-                    session.add(Player(name=f_name, rating=f_rate, position=f_pos, is_goalie=f_gk))
-                    session.commit(); st.rerun()
+        # --- PLAYER MANAGEMENT (EDIT/ADD) ---
+        with st.expander("👤 Player Management", expanded=(st.session_state.edit_id is not None)):
+            target = session.query(Player).filter(Player.id == st.session_state.edit_id).first() if st.session_state.edit_id else None
             
-            # Delete players list
-            players_all = session.query(Player).order_by(Player.name).all()
-            for p in players_all:
-                c1, c2 = st.columns([4, 1])
-                c1.write(f"{p.name} ({p.rating})")
-                if c2.button("🗑️", key=f"del_{p.id}"):
-                    session.delete(p)
-                    session.commit(); st.rerun()
-        
-        st.subheader("📋 Attendance (Select 18 for perfect 39s)")
+            with st.form("p_form"):
+                st.write("### " + ("Edit Player" if target else "Add New Player"))
+                f_name = st.text_input("Name", value=target.name if target else "")
+                f_rate = st.slider("Rating", 1, 10, target.rating if target else 5)
+                f_pos = st.selectbox("Position", ["GK", "DEF", "FWD"], index=["GK", "DEF", "FWD"].index(target.position) if target else 1)
+                f_gk = st.checkbox("Is Goalie?", value=target.is_goalie if target else False)
+                
+                submitted = st.form_submit_button("💾 Save Player")
+                if submitted:
+                    if target:
+                        target.name, target.rating, target.position, target.is_goalie = f_name, f_rate, f_pos, f_gk
+                    else:
+                        session.add(Player(name=f_name, rating=f_rate, position=f_pos, is_goalie=f_gk))
+                    session.commit()
+                    st.session_state.edit_id = None
+                    st.rerun()
+            if st.session_state.edit_id:
+                if st.button("❌ Cancel Edit"):
+                    st.session_state.edit_id = None
+                    st.rerun()
+
+        # --- ATTENDANCE WITH CHECK ALL ---
+        st.subheader("📋 Attendance")
         players = session.query(Player).order_by(Player.name).all()
-        cols = st.columns(3)
-        for i, p in enumerate(players):
-            cols[i % 3].checkbox(f"{p.name} ({p.rating})", key=f"at_{p.id}")
+        
+        c_all1, c_all2 = st.columns(2)
+        if c_all1.button("✅ Check All", use_container_width=True):
+            for p in players: st.session_state[f"at_{p.id}"] = True
+            st.rerun()
+        if c_all2.button("❌ Uncheck All", use_container_width=True):
+            for p in players: st.session_state[f"at_{p.id}"] = False
+            st.rerun()
+
+        st.divider()
+        # Responsive grid for players
+        for p in players:
+            r1, r2, r3, r4 = st.columns([3, 1, 1, 1])
+            r1.write(f"{'🧤' if p.is_goalie else '🏃'} **{p.name}** ({p.position})")
+            r2.checkbox("Here", key=f"at_{p.id}")
+            if r3.button("📝", key=f"ed_{p.id}"):
+                st.session_state.edit_id = p.id
+                st.rerun()
+            if r4.button("🗑️", key=f"del_{p.id}"):
+                session.delete(p)
+                session.commit()
+                st.rerun()
 
     st.divider()
-    t_count = st.radio("Number of Teams:", [2, 3], horizontal=True, index=1)
+    t_count = st.radio("Number of Teams:", [2, 3], horizontal=True, index=1, on_change=wipe_teams)
     
-    if st.button("🎲 Generate Balanced Teams (Greedy Engine)", use_container_width=True):
+    if st.button("🎲 Generate Balanced Teams", use_container_width=True):
         wipe_teams()
         with SessionLocal() as session:
             present = [p for p in session.query(Player).all() if st.session_state.get(f"at_{p.id}")]
-            if len(present) < (t_count * 2): st.error("Need more players!")
+            if len(present) < (t_count * 2):
+                st.error("Not enough players checked!")
             else:
+                # Greedy Balance Engine
                 random.shuffle(present)
                 gks = sorted([p for p in present if p.is_goalie], key=lambda x: x.rating, reverse=True)
                 outs = sorted([p for p in present if not p.is_goalie], key=lambda x: x.rating, reverse=True)
+                
                 teams = [{"name": f"Team {chr(65+i)}", "players": [], "rating": 0, "has_gk": False} for i in range(t_count)]
                 
-                # Distribute GKs
+                # Assign GKs
                 for i, gk in enumerate(gks):
-                    idx = i % t_count if (i//t_count)%2==0 else (t_count-1)-(i%t_count)
-                    if idx < t_count: 
+                    idx = i % t_count if (i // t_count) % 2 == 0 else (t_count - 1) - (i % t_count)
+                    if idx < t_count:
                         teams[idx]["players"].append(gk)
                         teams[idx]["rating"] += gk.rating
                         teams[idx]["has_gk"] = True
+                    else:
+                        outs.append(gk)
                 
-                # Greedy Outfielder Balance
+                # Assign Outfielders (Greedy)
+                outs.sort(key=lambda x: x.rating, reverse=True)
                 for p in outs:
                     teams.sort(key=lambda x: (len(x["players"]), x["rating"]))
                     teams[0]["players"].append(p)
                     teams[0]["rating"] += p.rating
                 
                 teams.sort(key=lambda x: x["name"])
-                st.session_state.final_teams = teams; st.rerun()
+                st.session_state.final_teams = teams
+                st.rerun()
 
+    # Display Teams
     if "final_teams" in st.session_state:
-        c = st.columns(t_count)
+        cols = st.columns(len(st.session_state.final_teams))
         for i, t in enumerate(st.session_state.final_teams):
-            with c[i]:
+            with cols[i]:
                 st.success(f"**{t['name']}** - {t['rating']} pts")
-                for p in t["players"]: st.write(f"{'🧤' if p.is_goalie else '🏃'} {p.name}")
+                for p in t["players"]:
+                    st.write(f"{'🧤' if p.is_goalie else '🏃'} {p.name}")
 
-# --- 5. WATCH REF MODE (THE SAVER) ---
+# --- 5. WATCH REF MODE ---
 elif app_mode == "⏱️ Watch Ref":
     st.title("⏱️ Watch Ref v3.0")
     if st.session_state.ref_3_teams is None:
@@ -148,7 +184,6 @@ elif app_mode == "⏱️ Watch Ref":
             if st.button(f"Goal {cur[1]}", key="gb"): st.session_state.score_b += 1; st.rerun()
         
         st.divider()
-        st.info(f"Waiting: {cur[2]}")
         if st.button("💾 Save Score & Next Match", use_container_width=True):
             with SessionLocal() as session:
                 winner = cur[0] if st.session_state.score_a > st.session_state.score_b else cur[1] if st.session_state.score_b > st.session_state.score_a else "Draw"
@@ -157,16 +192,12 @@ elif app_mode == "⏱️ Watch Ref":
             st.session_state.rotation_idx += 1
             st.session_state.score_a = 0; st.session_state.score_b = 0; st.rerun()
 
-# --- 6. LEAGUE STATS (THE DASHBOARD) ---
+# --- 6. LEAGUE STATS ---
 else:
     st.title("📊 League Stats")
     with SessionLocal() as session:
         data = session.query(MatchResult).order_by(MatchResult.timestamp.desc()).all()
         if data:
-            df = pd.DataFrame([(m.timestamp.strftime("%H:%M"), m.team_a_name, m.score_a, m.score_b, m.team_b_name, m.winner) for m in data], 
-                              columns=["Time", "Home", "SH", "SA", "Away", "Winner"])
-            
-            # Standings calculation
             standings = {"Team A": 0, "Team B": 0, "Team C": 0}
             for m in data:
                 if m.winner == "Draw":
@@ -175,14 +206,11 @@ else:
                 elif m.winner in standings:
                     standings[m.winner] += 3
             
-            st.subheader("🏆 Leaderboard (Points)")
+            st.subheader("🏆 Leaderboard")
             st.bar_chart(pd.Series(standings))
-            
-            st.subheader("📝 Match History")
-            st.table(df)
             
             if st.button("🧨 Reset League Stats"):
                 session.query(MatchResult).delete()
                 session.commit(); st.rerun()
         else:
-            st.info("No matches recorded yet. Go to Watch Ref to save your first game!")
+            st.info("No matches recorded yet.")

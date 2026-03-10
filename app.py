@@ -125,7 +125,7 @@ if app_mode == "📋 Manager Pro":
                 teams.sort(key=lambda x: x["name"])
                 st.session_state.final_teams = teams; st.rerun()
 
-    # --- TEAM DISPLAY & SWAP ---
+    # --- TEAM DISPLAY, SWAP & TELEGRAM ---
     if "final_teams" in st.session_state:
         st.divider()
         if st.session_state.swap_list:
@@ -133,7 +133,6 @@ if app_mode == "📋 Manager Pro":
             if st.button("Cancel Swap"): st.session_state.swap_list = []; st.rerun()
 
         cols = st.columns(len(st.session_state.final_teams))
-        colors = ["primary", "secondary", "normal"] # Visual themes
         for i, t in enumerate(st.session_state.final_teams):
             with cols[i]:
                 st.markdown(f"### {t['name']}")
@@ -150,9 +149,22 @@ if app_mode == "📋 Manager Pro":
                             idx2 = next(j for j, pl in enumerate(t2) if pl.id == s2['p'].id)
                             t1[idx1], t2[idx2] = t2[idx2], t1[idx1]
                             for team in st.session_state.final_teams:
+                                team["rating"] += 0 # Force refresh logic
                                 team["rating"] = sum(pl.rating for pl in team["players"])
                                 team["has_gk"] = any(pl.is_goalie for pl in team["players"])
                             st.session_state.swap_list = []; st.rerun()
+
+        # --- TELEGRAM SHARE SECTION ---
+        st.divider()
+        share_msg = "⚽ *FUTSAL LINEUPS* ⚽\n\n"
+        for t in st.session_state.final_teams:
+            share_msg += f"*{t['name']}* (Rating: {t['rating']})\n"
+            for p in t["players"]:
+                share_msg += f"{'🧤' if p.is_goalie else '🏃'} {p.name}\n"
+            share_msg += "\n"
+        
+        st.code(share_msg, language="markdown")
+        st.markdown(f"[✈️ Share Lineups to Telegram](https://t.me/share/url?url={urllib.parse.quote(share_msg)})")
 
 # --- 5. WATCH REF & 6. LEAGUE STATS ---
 elif app_mode == "⏱️ Watch Ref":
